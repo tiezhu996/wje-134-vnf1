@@ -7,7 +7,7 @@ import { UserRole } from '../types/enums';
 import { RequestContext } from '../types/interfaces';
 import { RbacMiddleware, Roles } from '../middlewares/rbac.middleware';
 import { ok } from '../utils/response';
-import { CreateCostItemDto, MarkCostExceptionDto } from './dto/costItem.dto';
+import { CreateCostItemDto, MarkCostExceptionDto, ReverseCostItemDto } from './dto/costItem.dto';
 
 @ApiTags(costItemRoutes.tag)
 @ApiBearerAuth()
@@ -19,9 +19,16 @@ export class CostItemController {
   @Get()
   @Roles(UserRole.Admin, UserRole.FinanceManager, UserRole.ProjectManager, UserRole.Accountant, UserRole.Viewer)
   @ApiQuery({ name: 'budgetId', required: false })
-  @ApiOperation({ summary: '查询成本项列表' })
+  @ApiOperation({ summary: '查询成本项列表（含已冲销记录与冲销凭证）' })
   async list(@Query('budgetId') budgetId: string | undefined, @Req() request: Request) {
     return ok(await this.costItemService.list(budgetId), '成本项列表', request.requestId);
+  }
+
+  @Get(costItemRoutes.byId)
+  @Roles(UserRole.Admin, UserRole.FinanceManager, UserRole.ProjectManager, UserRole.Accountant, UserRole.Viewer)
+  @ApiOperation({ summary: '查询单个成本项详情（已冲销原始记录仍可查）' })
+  async getById(@Param('id') id: string, @Req() request: Request) {
+    return ok(await this.costItemService.getById(id), '成本项详情', request.requestId);
   }
 
   @Post()
@@ -45,6 +52,17 @@ export class CostItemController {
     return ok(
       await this.costItemService.markException(id, body.reason, this.context(request)),
       '成本项已标记异常',
+      request.requestId
+    );
+  }
+
+  @Post(costItemRoutes.reverse)
+  @Roles(UserRole.Admin, UserRole.Accountant)
+  @ApiOperation({ summary: '针对原成本发起金额相反的冲销，填写冲销原因' })
+  async reverse(@Param('id') id: string, @Body() body: ReverseCostItemDto, @Req() request: Request) {
+    return ok(
+      await this.costItemService.reverse(id, body, this.context(request)),
+      '成本项已冲销',
       request.requestId
     );
   }

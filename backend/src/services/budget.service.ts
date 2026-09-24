@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectBudget } from '../models/budget.entity';
-import { AuditAction, BudgetStatus, Currency } from '../types/enums';
+import { AuditAction, BudgetStatus, CostItemStatus, Currency } from '../types/enums';
 import { AuthenticatedUser, RequestContext } from '../types/interfaces';
 import { toMoney } from '../utils/calculator';
 import { AuditLogService } from './auditLog.service';
@@ -98,11 +98,39 @@ export class BudgetService {
     return saved;
   }
 
-  async recalculateUsedAmount(id: string): Promise<ProjectBudget> {
-    const budget = await this.getById(id);
-    const usedAmount = budget.costItems.reduce((sum, item) => sum + Number(item.actualAmount), 0);
-    budget.usedAmount = toMoney(usedAmount);
-    return this.budgetRepository.save(budget);
+  async lockById(id: string, manager: EntityManager): Promise<ProjectBudget> {
+    // 行级锁串行化同一预算下的成本写入，配合唯一索引防止并发重复提交
+    const budget = await manager.findOne(ProjectBudget, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' }
+    });
+
+    if (!budget) {
+      throw new NotFoundException('项目预算不存在');
+    }
+
+    return budget;
+  }
+
+  async recalculateUsedAmount(id: string, manager?: EntityManager): Promise<ProjectBudget> {
+    const managerOrRepo = manager ?? this.budgetRepository.manager;
+
+    // 已用额按未冲销的实际金额合计：已冲销原始凭证与冲销凭证本身均计 0
+    await managerOrRepo
+      .createQueryBuilder()
+      .update(ProjectBudget)
+      .set({
+        usedAmount: () =>
+          `(SELECT COALESCE(SUM(ci.actual_amount), 0)
+              FROM cost_items ci
+             WHERE ci.budget_id = :id
+               AND ci.status != :reversedStatus
+               AND ci.reversal_of_id IS NULL)`
+      })
+      .where('id = :id', { id, reversedStatus: CostItemStatus.Reversed })
+      .execute();
+
+    return managerOrRepo.findOneOrFail(ProjectBudget, { where: { id } });
   }
 
   private async writeAudit(

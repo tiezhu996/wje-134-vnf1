@@ -23,7 +23,8 @@ export class AnalyticsService {
 
     for (const item of costItems) {
       const bucket = normalizeOtherCostCategory(item.category);
-      buckets[bucket] += Number(item.actualAmount);
+      // 成本报表只统计未冲销的实际金额（冲销后原始凭证与冲销凭证净额均为 0）
+      buckets[bucket] += item.effectiveActualAmount();
     }
 
     const totalCost = Number(sumMoney([buckets.labor, buckets.material, buckets.equipment, buckets.other]));

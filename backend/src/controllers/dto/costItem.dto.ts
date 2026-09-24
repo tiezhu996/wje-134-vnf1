@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
 import { CostCategory } from '../../types/enums';
 
 export class CreateCostItemDto {
@@ -47,5 +47,12 @@ export class CreateCostItemDto {
 export class MarkCostExceptionDto {
   @ApiProperty({ example: '实际金额超预算超过审批阈值' })
   @IsString()
+  reason: string;
+}
+
+export class ReverseCostItemDto {
+  @ApiProperty({ example: '凭证金额录入错误，冲销原成本后重新录入' })
+  @IsString()
+  @IsNotEmpty()
   reason: string;
 }

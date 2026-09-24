@@ -3,5 +3,6 @@ export const costItemRoutes = {
   base: 'cost-items',
   byId: ':id',
   reviewVariance: ':id/review-variance',
-  markException: ':id/exception'
+  markException: ':id/exception',
+  reverse: ':id/reversal'
 } as const;
