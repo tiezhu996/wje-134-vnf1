@@ -7,7 +7,7 @@ import { UserRole } from '../types/enums';
 import { RequestContext } from '../types/interfaces';
 import { RbacMiddleware, Roles } from '../middlewares/rbac.middleware';
 import { ok } from '../utils/response';
-import { CreateCostItemDto, MarkCostExceptionDto } from './dto/costItem.dto';
+import { CreateCostItemDto, MarkCostExceptionDto, ReverseCostItemDto } from './dto/costItem.dto';
 
 @ApiTags(costItemRoutes.tag)
 @ApiBearerAuth()
@@ -45,6 +45,17 @@ export class CostItemController {
     return ok(
       await this.costItemService.markException(id, body.reason, this.context(request)),
       '成本项已标记异常',
+      request.requestId
+    );
+  }
+
+  @Post(costItemRoutes.reverse)
+  @Roles(UserRole.Admin, UserRole.Accountant)
+  @ApiOperation({ summary: '对录错的成本项发起金额相反的冲销并填写原因' })
+  async reverse(@Param('id') id: string, @Body() body: ReverseCostItemDto, @Req() request: Request) {
+    return ok(
+      await this.costItemService.reverse(id, body.reason, this.context(request)),
+      '成本项已冲销',
       request.requestId
     );
   }

@@ -2,6 +2,7 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  Index,
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
@@ -11,6 +12,11 @@ import { ProjectBudget } from './budget.entity';
 import { CostCategory, CostItemStatus } from '../types/enums';
 
 @Entity({ name: 'cost_items' })
+@Index('uq_cost_items_project_voucher', ['projectId', 'voucherNo'], { unique: true })
+@Index('uq_cost_items_reversal_of', ['reversalOfId'], {
+  unique: true,
+  where: '"reversal_of_id" IS NOT NULL'
+})
 export class CostItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -21,6 +27,9 @@ export class CostItem {
   @ManyToOne(() => ProjectBudget, (budget) => budget.costItems, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'budget_id' })
   budget: ProjectBudget;
+
+  @Column({ name: 'project_id', type: 'uuid' })
+  projectId: string;
 
   @Column({ type: 'enum', enum: CostCategory })
   category: CostCategory;
@@ -54,6 +63,16 @@ export class CostItem {
 
   @Column({ name: 'exception_reason', type: 'text', nullable: true })
   exceptionReason?: string | null;
+
+  @Column({ name: 'reversal_of_id', type: 'uuid', nullable: true })
+  reversalOfId?: string | null;
+
+  @ManyToOne(() => CostItem, { nullable: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'reversal_of_id' })
+  reversalOf?: CostItem | null;
+
+  @Column({ name: 'reversal_reason', type: 'text', nullable: true })
+  reversalReason?: string | null;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;

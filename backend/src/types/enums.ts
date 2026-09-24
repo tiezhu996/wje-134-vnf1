@@ -30,7 +30,8 @@ export enum CostCategory {
 export enum CostItemStatus {
   Normal = 'Normal',
   VarianceReviewed = 'VarianceReviewed',
-  Exception = 'Exception'
+  Exception = 'Exception',
+  Reversed = 'Reversed'
 }
 
 export enum ChangeType {
@@ -68,6 +69,7 @@ export enum AuditAction {
   CostItemCreated = 'CostItemCreated',
   CostItemReviewed = 'CostItemReviewed',
   CostItemMarkedException = 'CostItemMarkedException',
+  CostItemReversed = 'CostItemReversed',
   ChangeOrderCreated = 'ChangeOrderCreated',
   ChangeOrderSubmitted = 'ChangeOrderSubmitted',
   ChangeOrderApproved = 'ChangeOrderApproved',

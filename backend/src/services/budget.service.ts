@@ -1,8 +1,9 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { EntityManager, Repository } from 'typeorm';
 import { ProjectBudget } from '../models/budget.entity';
-import { AuditAction, BudgetStatus, Currency } from '../types/enums';
+import { CostItem } from '../models/costItem.entity';
+import { AuditAction, BudgetStatus, CostItemStatus, Currency } from '../types/enums';
 import { AuthenticatedUser, RequestContext } from '../types/interfaces';
 import { toMoney } from '../utils/calculator';
 import { AuditLogService } from './auditLog.service';
@@ -98,11 +99,46 @@ export class BudgetService {
     return saved;
   }
 
-  async recalculateUsedAmount(id: string): Promise<ProjectBudget> {
-    const budget = await this.getById(id);
-    const usedAmount = budget.costItems.reduce((sum, item) => sum + Number(item.actualAmount), 0);
-    budget.usedAmount = toMoney(usedAmount);
-    return this.budgetRepository.save(budget);
+  /**
+   * 在事务内锁定预算行，保证同一预算上的成本录入/冲销串行化，
+   * 避免并发请求同时重算已用金额导致的丢失更新。
+   */
+  async getByIdForUpdate(id: string, manager: EntityManager): Promise<ProjectBudget> {
+    const budget = await manager.findOne(ProjectBudget, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' }
+    });
+
+    if (!budget) {
+      throw new NotFoundException('项目预算不存在');
+    }
+
+    return budget;
+  }
+
+  /**
+   * 重算预算已用金额：仅统计未被冲销的原始成本项。
+   * 冲销记录（reversal_of_id 非空）与已冲销原始记录（status=Reversed）均不计入。
+   */
+  async recalculateUsedAmount(id: string, manager?: EntityManager): Promise<ProjectBudget> {
+    const runner = manager ?? this.budgetRepository.manager;
+
+    const row = await runner
+      .createQueryBuilder()
+      .select('COALESCE(SUM(ci.actual_amount), 0)', 'usedAmount')
+      .from(CostItem, 'ci')
+      .where('ci.budget_id = :budgetId', { budgetId: id })
+      .andWhere("COALESCE(ci.reversal_of_id::text, '') = ''")
+      .andWhere('ci.status::text != :reversedStatus', { reversedStatus: CostItemStatus.Reversed })
+      .getRawOne<{ usedAmount: string }>();
+
+    const budget = await runner.findOneBy(ProjectBudget, { id });
+    if (!budget) {
+      throw new NotFoundException('项目预算不存在');
+    }
+
+    budget.usedAmount = toMoney(row?.usedAmount ?? 0);
+    return runner.save(budget);
   }
 
   private async writeAudit(

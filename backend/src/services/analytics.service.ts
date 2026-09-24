@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { CostItem } from '../models/costItem.entity';
-import { normalizeOtherCostCategory, sumMoney, toMoney } from '../utils/calculator';
+import {
+  effectiveActualAmount,
+  normalizeOtherCostCategory,
+  sumMoney,
+  toMoney
+} from '../utils/calculator';
 
 export interface CostAnalysisSummary {
   laborCostTotal: string;
@@ -22,8 +27,13 @@ export class AnalyticsService {
     };
 
     for (const item of costItems) {
+      const amount = effectiveActualAmount(item);
+      if (amount === 0) {
+        continue;
+      }
+
       const bucket = normalizeOtherCostCategory(item.category);
-      buckets[bucket] += Number(item.actualAmount);
+      buckets[bucket] += amount;
     }
 
     const totalCost = Number(sumMoney([buckets.labor, buckets.material, buckets.equipment, buckets.other]));

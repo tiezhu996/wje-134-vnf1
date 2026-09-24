@@ -1,5 +1,15 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsDateString, IsEnum, IsNumber, IsOptional, IsString, IsUUID, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsUUID,
+  MaxLength,
+  Min
+} from 'class-validator';
 import { CostCategory } from '../../types/enums';
 
 export class CreateCostItemDto {
@@ -31,6 +41,8 @@ export class CreateCostItemDto {
 
   @ApiProperty({ example: 'VOUCHER-20260612-001' })
   @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
   voucherNo: string;
 
   @ApiPropertyOptional({ example: '4d5eb37e-02c2-4d6e-a715-6cdcc6c52362' })
@@ -47,5 +59,13 @@ export class CreateCostItemDto {
 export class MarkCostExceptionDto {
   @ApiProperty({ example: '实际金额超预算超过审批阈值' })
   @IsString()
+  reason: string;
+}
+
+export class ReverseCostItemDto {
+  @ApiProperty({ example: '凭证金额录入错误，多计钢筋采购款 12000 元，全额冲销' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(500)
   reason: string;
 }
